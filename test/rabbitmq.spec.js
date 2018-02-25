@@ -14,9 +14,10 @@ describe('RabbitMQ', function() {
 
   describe('instantiating the class', function() {
   
-    it('should be an object', function() {
+    it('should be an object', function(done) {
       const rabbit = new RabbitMQ(testConfig);
       assert.equal(typeof(rabbit), 'object', 'Rabbit is an object');
+      done();
     });
 
     it('should fire a ready event with a channel', function(done) {
