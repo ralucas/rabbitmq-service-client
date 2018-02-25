@@ -1,13 +1,16 @@
 #!/usr/bin/env node
 
+'use strict'
+
 const amqp = require('amqplib');
 const EventEmitter = require('events');
 const crypto = require('crypto');
 const md5Hash = crypto.createHash('md5');
 
 const getConnString = (config) => {
-  return `amqp://${config.username}:${config.password}@${config.host}:${config.port}/`;
-}
+  return 'amqp://' + config.username + ':' +
+    config.password + '@' + config.host + ':' + config.port + '/';
+};
 
 class Rabbit extends EventEmitter {
 
@@ -124,9 +127,20 @@ class Rabbit extends EventEmitter {
   handleErrors(err) {
     this.emit('connectionerror', err);
     console.error("Error in RabbitMQ", err);
+    this.closeConnection();
+  }
+
+  closeConnection() {
+    const _this = this;
     if ( this.connection ) {
-      this.connection.close();
+      return new Promise(function(resolve, reject) {
+        _this.connection.close(function(err) {
+          if (err) return reject(err);
+          return resolve();
+        });
+      });
     }
+    return Promise.resolve();
   }
 
 }  
