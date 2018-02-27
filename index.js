@@ -35,11 +35,13 @@ class Rabbit extends EventEmitter {
     const self = this;
 
     return this.createConnection()
-      .then(conn => {
-        return this.createChannel(conn);
-      })
-      .then(chan => {
-        return this.setChannel(chan);
+      .then(self.createChannel.bind(self))
+      .then(self.setChannel.bind(self))
+      .then(channel => {
+        if (this.config.queues && this.config.queues.length) {
+          return this.createQueues(this.config.queues);
+        }
+        return Promise.resolve();
       })
       .then(() => {
         self.emit('ready', self.channel);
@@ -66,11 +68,8 @@ class Rabbit extends EventEmitter {
   }
 
   createQueues(queues) {
-    const self = this;
-    const channel = this.channel;
-    let qs = queues || this.config.queues;
-    qs = Array.isArray(qs) ? qs : [qs];
-    const promises = qs.map(function(queue) {
+    const qs = Array.isArray(queues) ? queues : [queues];
+    const promises = qs.map((queue) => {
       const queueOpts = Object.assign({
         durable: true
       }, queue.options);
@@ -78,7 +77,7 @@ class Rabbit extends EventEmitter {
       if (this.config.no_duplicates && !self.queueCache[queue.name]) {
         self.queueCache[queue.name] = new Set();
       }
-      return channel.assertQueue(queue.name, queueOpts); 
+      return this.channel.assertQueue(queue.name, queueOpts);
     });
     return Promise.all(promises);
   }

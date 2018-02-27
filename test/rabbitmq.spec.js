@@ -24,11 +24,9 @@ describe('RabbitMQ', function() {
   afterEach(function(done) {
     rabbit.closeAll()
       .then(function() {
-        console.log('ae done')
         done();
       })
       .catch(function(e) {
-        console.error('ae err', e)
         done();
       });
   });
