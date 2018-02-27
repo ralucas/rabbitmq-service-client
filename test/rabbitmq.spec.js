@@ -1,3 +1,5 @@
+'use strict';
+
 const assert = require('assert');
 
 const RabbitMQ = require('../');
@@ -20,23 +22,21 @@ describe('RabbitMQ', function() {
   });
 
   afterEach(function(done) {
-    rabbit.closeConnection()
+    rabbit.closeAll()
       .then(function() {
+        console.log('ae done')
         done();
       })
       .catch(function(e) {
-        done(e)
-      })
+        console.error('ae err', e)
+        done();
+      });
   });
 
   describe('instantiating the class', function() {
-  
-    it('should be an object', function(done) {
-      assert.equal(typeof(rabbit), 'object', 'Rabbit is an object');
-      done();
-    });
 
     it('should fire a ready event with a channel', function(done) {
+      assert.equal(typeof(rabbit), 'object', 'Rabbit is an object');
       rabbit.on('ready', function(channel) {
         assert.equal(typeof(channel), 'object', 'Channel is an object');
         done();

@@ -1,6 +1,8 @@
 RabbitMQ Service Client Library
 ---
 
+[![Build Status](https://travis-ci.org/ralucas/rabbitmq-service-client.svg?branch=master)](https://travis-ci.org/ralucas/rabbitmq-service-client)
+
 ## Introduction
 This is a thin-wrapper over the amqp library that provides an interface for 
 interacting with RabbitMQ queues.
@@ -52,8 +54,10 @@ __N.B.__ Defaults for options are `undefined`
 ### Events
   - `connecting`
   - `connected` - Connected to RabbitMQ server, but no channels yet
-  - `ready` - Queues are ready to be enacted with
-  - `connectionerror`
+  - `ready` - Queues are ready to be interacted with
+  - `connection_error` - Error in connection creation
+  - `channel_created` - Channel now created
+  - `message_collision` - if `no_duplicates` option is passed, this event will fire on a duplicate detection
 
 ### Running Tests
 

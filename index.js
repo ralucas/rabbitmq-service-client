@@ -17,9 +17,10 @@ class Rabbit extends EventEmitter {
   constructor(config) {
     super();
 
-    if ( !config ) {
+    if (!config) {
       throw new Error("Config required!");
     }
+
     this.config = config;
 
     this.connectionString = getConnString(config);
@@ -31,15 +32,20 @@ class Rabbit extends EventEmitter {
   }
 
   connect() {
-    const _this = this;
+    const self = this;
 
     return this.createConnection()
-      .then(_this.createChannel.bind(_this))
-      .then(_this.setChannel.bind(_this))
-      .then(() => {
-        _this.emit('ready', _this.channel);
+      .then(conn => {
+        return this.createChannel(conn);
       })
-      .then(null, _this.handleErrors.bind(_this));
+      .then(chan => {
+        return this.setChannel(chan);
+      })
+      .then(() => {
+        self.emit('ready', self.channel);
+        return Promise.resolve();
+      })
+      .catch(self.handleErrors.bind(self));
   }
 
   createConnection() {
@@ -55,25 +61,25 @@ class Rabbit extends EventEmitter {
 
   setChannel(ch) {
     this.channel = ch;
-    this.emit('channelcreated', ch);
+    this.emit('channel_created', ch);
     return ch;
   }
 
   createQueues(queues) {
-    const _this = this;
+    const self = this;
     const channel = this.channel;
     let qs = queues || this.config.queues;
     qs = Array.isArray(qs) ? qs : [qs];
-    const promises = qs.map(queue => {
+    const promises = qs.map(function(queue) {
       const queueOpts = Object.assign({
         durable: true
       }, queue.options);
       // Create a new set for caching queues
-      if ( this.config.no_duplicates && !_this.queueCache[queue.name] ) {
-          _this.queueCache[queue.name] = new Set();
+      if (this.config.no_duplicates && !self.queueCache[queue.name]) {
+        self.queueCache[queue.name] = new Set();
       }
       return channel.assertQueue(queue.name, queueOpts); 
-    })
+    });
     return Promise.all(promises);
   }
 
@@ -84,7 +90,7 @@ class Rabbit extends EventEmitter {
   }
 
   consume(q, cb) {
-    const queue = this.config.queues.find(queue => queue.name == q);
+    const queue = this.config.queues.find(queue => queue.name === q);
     this.channel.prefetch(1);
     this.channel.consume(queue.name, (msg) => {
       const message = msg.content.toString();
@@ -94,21 +100,20 @@ class Rabbit extends EventEmitter {
   }
 
   sendToQueue(q, msg) {
-    const queue = this.config.queues.find(queue => queue.name == q);
-    // TODO: Do we want to just create the queue if it doesn't exist
-    // or throw this error?
-    if ( !queue ) {
+    const queue = this.config.queues.find(queue => queue.name === q);
+    // TODO: Needs option to create the queue if it doesn't exist
+    if (!queue) {
       throw new Error("Queue " + q + " does not exist");
     }
-    if ( typeof(msg) != 'string' ) {
+    if (typeof(msg) !== 'string') {
       throw new Error("Message must be a string");
     }
 
-    if ( this.config.no_duplicates ) {
+    if (this.config.no_duplicates) {
       // On a message collision, emit event and return out
       const msgMd5 = md5Hash.update(msg).digest('hex');
-      if ( this.queueCache[queue.name].has(msgMd5) ) {
-        this.emit('messagecollision', msg);
+      if (this.queueCache[queue.name].has(msgMd5)) {
+        this.emit('message_collision', msg);
       } else {
         this.queueCache[queue.name].add(msgMd5);
       }
@@ -125,22 +130,34 @@ class Rabbit extends EventEmitter {
   }
 
   handleErrors(err) {
-    this.emit('connectionerror', err);
+    this.emit('connection_error', err);
     console.error("Error in RabbitMQ", err);
-    this.closeConnection();
+    return this.closeAll();
+  }
+
+  closeChannel() {
+    try {
+      return this.channel.close();
+    } catch(e) {
+      console.error(e, this.channel);
+      return Promise.resolve();
+    }
   }
 
   closeConnection() {
-    const _this = this;
-    if ( this.connection ) {
-      return new Promise(function(resolve, reject) {
-        _this.connection.close(function(err) {
-          if (err) return reject(err);
-          return resolve();
-        });
-      });
+    try {
+      return this.connection.close();
+    } catch(e) {
+      console.error(e);
+      return Promise.resolve();
     }
-    return Promise.resolve();
+  }
+
+  closeAll() {
+    return this.closeChannel()
+      .then(() => {
+        return this.closeConnection();
+      });
   }
 
 }  
